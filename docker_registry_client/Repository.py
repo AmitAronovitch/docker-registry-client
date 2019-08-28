@@ -79,6 +79,10 @@ class RepositoryV2(BaseRepository):
 
         return self._tags
 
+    def all_tags(self):
+        data = self._client.get_all_repository_tags(self.name)
+        return data['tags']
+
     def manifest(self, tag):
         """
         Return a tuple, (manifest, digest), for a given tag

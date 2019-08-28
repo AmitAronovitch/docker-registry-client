@@ -145,6 +145,7 @@ BASE_CONTENT_TYPE = 'application/vnd.docker.distribution.manifest'
 
 class BaseClientV2(CommonBaseClient):
     LIST_TAGS = '/v2/{name}/tags/list'
+    PAGINATED_LIST_TAGS = '/v2/{name}/tags/list?n={pagesize}'
     MANIFEST = '/v2/{name}/manifests/{reference}'
     BLOB = '/v2/{name}/blobs/{digest}'
     schema_1_signed = BASE_CONTENT_TYPE + '.v1+prettyjws'
@@ -178,6 +179,21 @@ class BaseClientV2(CommonBaseClient):
     def get_repository_tags(self, name):
         self.auth.desired_scope = 'repository:%s:*' % name
         return self._http_call(self.LIST_TAGS, get, name=name)
+
+    def get_all_repository_tags(self, name):
+        self.auth.desired_scope = 'repository:%s:*' % name
+        response = self._http_response(self.PAGINATED_LIST_TAGS,
+                                       get, name=name, pagesize=40)
+        result = response.json()
+        while 'link' in response.headers:
+            link, rel = response.headers['link'].split(';')
+            assert rel.strip().lower() == 'rel="next"'
+            assert link.startswith('<') and link.endswith('>')
+            link = link[1:-1]
+            response = self._http_response(link, get)
+            data = response.json()
+            result['tags'].extend(data['tags'])
+        return result
 
     def get_manifest_and_digest(self, name, reference):
         m = self.get_manifest(name, reference)
